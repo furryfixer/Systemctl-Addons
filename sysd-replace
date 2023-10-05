@@ -1,0 +1,48 @@
+#!/bin/bash
+#
+#  "sysd-replace" script by furryfixer to replace one active
+#  systemd service with another. The replacement will be 
+#  BOTH enabled AND activated. The old service will be BOTH
+#  disabled AND stopped. Invoke in the form
+#  "sysd-replace <old service> <new service>"
+#  Useful for swapping login display managers such as XDM, LXDM, SDDM,
+#  or network managers, etc.
+
+if [ "$EUID" -ne 0 ]; then
+	echo "You must be ROOT for this command to work"
+	exit 1
+fi
+if [ -z "$2" ] || [ ! -z "$3" ]; then       
+        echo "Syntax error. Two and only two operands expected. "\""sysd-replace A B"\"
+        exit 1
+fi
+old_loaded=$(systemctl is-enabled $1)
+new_loaded=$(systemctl is-enabled $2)
+old_active=$(systemctl is-active  $1)
+new_active=$(systemctl is-active  $2)
+if [[ $old_loaded = "not-found" ]]; then
+	echo "Error. A Service(unit) file is not found for "\"$1\""
+    No changes were made."
+	exit 1
+fi
+if [[ $new_loaded = "not-found" ]]; then
+	echo "Error. A Service(unit) file is not found for "\"$2\""
+    No changes were made."
+	exit 1
+fi
+if [[ ! $old_loaded = "enabled" ]]; then
+	echo "Error. "\"$1\"" is not currently enabled
+    No changes were made."
+	exit 1 
+fi
+if [[ $new_active = "active" ]] || [[ $new_loaded = "enabled" ]]; then
+	echo "Error. "\"$2\"" is either active or already enabled
+    No changes were made."
+	exit 1 
+fi
+systemctl stop $1 || exit 1
+systemctl disable $1 || exit 1
+systemctl enable $2 || exit 1
+systemctl start $2 || exit 1
+echo \"$2\"" service successfully enabled and started, replacing "\"$1\"
+ 
